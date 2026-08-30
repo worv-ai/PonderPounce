@@ -89,10 +89,10 @@ If you find this work useful, please cite our paper:
 
 ```bibtex
 @article{choi2026ponderpounce,
-  title   = {PonderPounce: A Pretrained MLLM as an Episode Context Engine for Robot Control},
-  author  = {Choi, Suhwan and Jung, Jaeyoon and Kim, Sungkyung and Lee, Yunsung and Yu, Youngjae},
-  journal = {arXiv preprint arXiv:2608.24115},
-  year    = {2026}
+  title={PonderPounce: A Pretrained MLLM as an Episode Context Engine for Robot Control},
+  author={Choi, Suhwan and Jung, Jaeyoon and Kim, Sungkyung and Lee, Yunsung and Yu, Youngjae},
+  journal={arXiv preprint arXiv:2608.24115},
+  year={2026}
 }
 ```
 
