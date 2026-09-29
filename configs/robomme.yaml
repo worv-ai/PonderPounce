@@ -1,0 +1,53 @@
+# vla-eval run config: RoboMME-16 against a PonderPounce server.
+#
+#   1. start the server:   python -m ponderpounce.eval.robomme_server --args.checkpoint_path <ckpt> --port 8000
+#   2. run the benchmark:  vla-eval run -c configs/robomme.yaml
+#
+# The 16 tasks run sequentially in one simulator container (CPU rendering via
+# lavapipe); the server is queried at every 20 Hz control step. Use
+# scripts/eval_robomme.sh to shard tasks across several servers / GPUs.
+server:
+  url: ws://localhost:8000
+  timeout: 300.0
+
+# lavapipe software rendering inside the container: no GPU is attached, the GPU is the policy's.
+render: cpu
+
+docker:
+  image: ghcr.io/worv-ai/vla-evaluation-harness-public/robomme:latest
+  env:
+    - ROBOMME_USE_LAVAPIPE=1
+    - NVIDIA_VISIBLE_DEVICES=void
+    - CUDA_VISIBLE_DEVICES=
+  user: host
+
+output_dir: runs/robomme
+
+benchmarks:
+  - benchmark: vla_eval.benchmarks.robomme.benchmark:RoboMMEBenchmark
+    subname: ponderpounce
+    episodes_per_task: 50
+    params:
+      action_space: joint_angle
+      max_steps: 1300
+      tasks:
+        - BinFill
+        - PickXtimes
+        - SwingXtimes
+        - StopCube
+        - VideoUnmask
+        - VideoUnmaskSwap
+        - ButtonUnmask
+        - ButtonUnmaskSwap
+        - PickHighlight
+        - VideoRepick
+        - VideoPlaceButton
+        - VideoPlaceOrder
+        - MoveCube
+        - InsertPeg
+        - PatternLock
+        - RouteStick
+    recording:
+      output_dir: runs/robomme/episodes
+      record_step: true
+      record_video: true

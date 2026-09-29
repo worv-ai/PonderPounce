@@ -1,0 +1,47 @@
+[project]
+name = "ponderpounce"
+version = "0.1.0"
+description = "PonderPounce: a pretrained MLLM as an episode context engine for robot control (model + RoboMME evaluation)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "torch>=2.6",
+    "torchvision",                     # Qwen3.5 processor (video processor backend)
+    # Qwen3.5 (Ponder) and the flattened PaliGemma layout the checkpoints use.
+    "transformers[kernels]>=5.13,<5.14",
+    "accelerate>=0.28",
+    "safetensors",
+    "huggingface-hub",
+    "Pillow",
+    "numpy",
+    "pyyaml",
+    "lazyregistry>=0.4",
+    "lazy-loader>=0.4",
+    "jsonargparse[signatures]>=4.27",
+    # Evaluation harness (model-server protocol + RoboMME benchmark runner).
+    "vla-eval>=0.7.0",
+]
+
+[project.optional-dependencies]
+# Qwen3.5 hybrid-attention CUDA kernels (GPU only). Strongly recommended.
+qwen35 = ["flash-linear-attention", "causal-conv1d"]
+
+[dependency-groups]
+dev = ["ruff", "pytest"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ponderpounce"]
+
+[tool.ruff]
+line-length = 119
+target-version = "py311"
+extend-exclude = ["ponderpounce/models/pi05/_vendored"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
