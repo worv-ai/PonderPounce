@@ -61,7 +61,7 @@ NS_PER_MS = 1_000_000
 
 
 def resolve_checkpoint(path_or_repo: str) -> str:
-    """A local checkpoint directory, or a Hub repo id (``worv-ai/ponderpounce-9b-robomme``)
+    """A local checkpoint directory, or a Hub repo id (``worv-ai/PonderPounce-9B-RoboMME``)
     that is downloaded into the Hub cache (``HF_HOME``) on first use."""
     if os.path.isdir(path_or_repo):
         return path_or_repo
@@ -203,7 +203,7 @@ class PonderPounceRoboMMEServer(ModelServer):
         Args:
             checkpoint_path: directory with ``config.json``, ``model.safetensors``
                 and ``norm_stats.json``, or the Hub id of a released checkpoint
-                (``worv-ai/ponderpounce-9b-robomme``).
+                (``worv-ai/PonderPounce-9B-RoboMME``).
             device, dtype: where both systems live. bfloat16 on one 80 GB GPU.
             sim_freq_hz: the benchmark's control rate (RoboMME: 20 Hz). One
                 observation advances the simulated clock by ``1 / sim_freq_hz``.
