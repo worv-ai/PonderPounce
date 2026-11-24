@@ -184,9 +184,29 @@ class S2QwenConfig(PretrainedConfig):
         # each under an outer activation checkpoint. Rows are independent
         # sequences, so the loss is unchanged; only peak memory / recompute move.
         current_obs_chunk_tokens: int = 4096,
+        # Future slots (PonderPounce-WM). ``num_future_tokens`` of the
+        # ``num_cognition_tokens`` carrier slots were trained to regress the change
+        # of the frozen Pounce SigLIP feature (pooled to ``future_pool_grid``² patches
+        # per camera in ``future_target_cameras``) between the query frame and the
+        # frame ``future_horizons_ms[i]`` later. They lead the carrier block, or
+        # trail it under ``future_after_cognition`` (the cognition then never
+        # attends to them). 0 = plain cognition block.
+        num_future_tokens: int = 0,
+        future_horizons_ms: list[float] | tuple[float, ...] | None = None,
+        future_pool_grid: int = 2,
+        future_target_cameras: list[int] | tuple[int, ...] | None = None,
+        future_slot_per_camera: bool = False,
+        future_after_cognition: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        if not 0 <= num_future_tokens < max(num_cognition_tokens, 1):
+            raise ValueError(
+                f"num_future_tokens ({num_future_tokens}) must be >= 0 and leave at least one cognition slot "
+                f"in the {num_cognition_tokens}-slot carrier block"
+            )
+        if future_pool_grid < 1:
+            raise ValueError(f"future_pool_grid must be >= 1, got {future_pool_grid}")
         if current_obs_chunk_tokens <= 0:
             raise ValueError(f"current_obs_chunk_tokens must be > 0, got {current_obs_chunk_tokens}")
         if bbox_noise_pixels < 0:
@@ -210,6 +230,20 @@ class S2QwenConfig(PretrainedConfig):
         self.max_context_tokens = max_context_tokens
         self.current_obs_only = current_obs_only
         self.current_obs_chunk_tokens = current_obs_chunk_tokens
+        self.num_future_tokens = num_future_tokens
+        self.future_horizons_ms = [float(h) for h in future_horizons_ms] if future_horizons_ms is not None else []
+        self.future_pool_grid = future_pool_grid
+        self.future_target_cameras = (
+            [int(c) for c in future_target_cameras] if future_target_cameras is not None else None
+        )
+        self.future_slot_per_camera = future_slot_per_camera
+        self.future_after_cognition = future_after_cognition
+
+    def future_target_tokens(self, num_camera_slots: int) -> int:
+        """Pooled patch tokens one future slot predicts: one camera under
+        ``future_slot_per_camera``, every target camera otherwise."""
+        cams = len(self.future_target_cameras) if self.future_target_cameras else int(num_camera_slots)
+        return (1 if self.future_slot_per_camera else cams) * self.future_pool_grid**2
 
     def build_system2(self) -> "System2":
         """Construct the System2 deliberative VLM module from this config."""
@@ -382,6 +416,12 @@ class PonderPounceConfig(PretrainedConfig):
         # Hinge margin in flow-loss units (base fm loss runs ~0.02, so 0.05
         # forces a clear gap; tune per run).
         s1_cognition_swap_margin: float = 0.05,
+        # Weight of the future-slot regression loss in training. > 0 means the
+        # checkpoint carries the regression head (``future_head``).
+        s2_future_weight: float = 0.0,
+        # Whether Pounce receives the future slots in its soft prefix alongside the
+        # cognition slots. False: the future slots stay inside Ponder.
+        s1_receives_future: bool = True,
         # Optional path to a full PonderPounceVLA checkpoint to load weights
         # from after __init__. Used to chain stage 3 → stage 4 (and any
         # downstream resume that keeps weights but not optimizer state).
@@ -417,4 +457,10 @@ class PonderPounceConfig(PretrainedConfig):
         self.s1_cognition_attn_bias = s1_cognition_attn_bias
         self.s1_cognition_swap_weight = s1_cognition_swap_weight
         self.s1_cognition_swap_margin = s1_cognition_swap_margin
+        self.s2_future_weight = s2_future_weight
+        self.s1_receives_future = s1_receives_future
         self.pretrained = pretrained
+        if s2_future_weight < 0:
+            raise ValueError(f"s2_future_weight must be >= 0, got {s2_future_weight}")
+        if s2_future_weight > 0 and int(getattr(self.s2, "num_future_tokens", 0)) == 0:
+            raise ValueError("s2_future_weight > 0 requires s2.num_future_tokens > 0")

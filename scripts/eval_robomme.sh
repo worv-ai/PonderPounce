@@ -7,8 +7,10 @@
 # the 16 tasks split round-robin across the servers, and --sims-per-gpu
 # simulator containers per server (the server interleaves their sessions; the
 # simulators render on CPU with lavapipe, about one core each). Per-task success
-# rates go to <out>/results.json; per-episode videos and the step recording land under
-# <out>/shard_<gpu>_<sim>/.
+# rates go to <out>/results.json; per-episode videos, the step recording and the
+# simulator logs land under <out>/server_<n>/. The simulators of one server share
+# one recording database (same --eval-id), which is also the queue they claim
+# episodes from, so every episode runs exactly once.
 #
 # Needs: docker with the RoboMME image (see README), a venv with this package
 # (`uv sync`); commands go through `uv run` unless PYTHON / VLA_EVAL are set.
@@ -34,6 +36,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ -n "$CKPT" ]] || { echo "--ckpt is required" >&2; exit 2; }
+# Results are aggregated over every recording under --out, so a second run into the same directory would be added to the first.
+if [[ -d "$OUT" ]] && find "$OUT" -name 'recording-*.sqlite' -print -quit | grep -q .; then
+  echo "$OUT already holds results of an earlier run; pass a new --out or remove it" >&2; exit 2
+fi
 command -v docker >/dev/null || { echo "docker not found" >&2; exit 1; }
 docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
 
@@ -95,23 +101,30 @@ write_config() {  # <path> <port> <out_dir> <task>...
 }
 
 SHARD_PIDS=()
+RUN_ID="$(date +%Y%m%dT%H%M%S)"
 for i in "${!GPU_LIST[@]}"; do
   port=$((BASE_PORT + i))
   shard_tasks=()
   for t in "${!TASKS[@]}"; do [[ $((t % N)) -eq $i ]] && shard_tasks+=("${TASKS[$t]}"); done
+  [[ ${#shard_tasks[@]} -gt 0 ]] || continue
+  server_out="$OUT/server_$i"
+  mkdir -p "$server_out"
+  write_config "$server_out/config.yaml" "$port" "$server_out" "${shard_tasks[@]}"
   for ((j = 0; j < SIMS; j++)); do
-    shard_out="$OUT/shard_${i}_${j}"
-    mkdir -p "$shard_out"
-    write_config "$shard_out/config.yaml" "$port" "$shard_out" "${shard_tasks[@]}"
-    $VLA_EVAL run -c "$shard_out/config.yaml" --render cpu --yes --shard-id "$j" --num-shards "$SIMS" > "$shard_out/run.log" 2>&1 &
+    # One output directory and one --eval-id per server: its simulators share a
+    # recording database and claim episodes from it. Separate directories would
+    # give every simulator its own queue and each would run the whole task set.
+    $VLA_EVAL run -c "$server_out/config.yaml" --render cpu --yes --shard-id "$j" --num-shards "$SIMS" \
+        --eval-id "robomme-$RUN_ID-s$i" > "$server_out/sim_$j.log" 2>&1 &
     SHARD_PIDS+=($!)
   done
-  echo "server $i: ${#shard_tasks[@]} tasks over $SIMS simulators -> $OUT/shard_${i}_*"
+  echo "server $i: ${#shard_tasks[@]} tasks over $SIMS simulators -> $server_out"
 done
 fail=0
 for p in "${SHARD_PIDS[@]}"; do wait "$p" || fail=1; done
 
 # 3. per-task success rates over every shard
-$PY "$(dirname "${BASH_SOURCE[0]}")/aggregate_results.py" "$OUT" --json "$OUT/results.json" || true
+$PY "$(dirname "${BASH_SOURCE[0]}")/aggregate_results.py" "$OUT" --json "$OUT/results.json" \
+    --expect-episodes $((EPISODES * ${#TASKS[@]})) || fail=1
 echo "done: $OUT (exit $fail)"
 exit $fail

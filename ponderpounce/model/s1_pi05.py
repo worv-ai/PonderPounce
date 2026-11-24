@@ -51,6 +51,15 @@ class PonderPounceS1Pi05(nn.Module):
         # Additive pre-softmax attention-logit bias on cognition KEY positions
         # (set by the dual core from ``config.s1_cognition_attn_bias``); 0.0 = no-op.
         self.cognition_attn_bias: float = 0.0
+        # Carrier slots dropped before projection (set by the dual core when
+        # Pounce does not receive Ponder's future slots): leading / trailing.
+        self.cognition_slot_offset: int = 0
+        self.cognition_slot_tail: int = 0
+
+    @property
+    def future_target_dim(self) -> int:
+        """Feature width of the future-slot regression target (SigLIP hidden size)."""
+        return int(self.model.pi05.paligemma_with_expert.paligemma.model.vision_tower.config.hidden_size)
 
     def _prefix_logit_bias(self, soft_prefix: torch.Tensor | None) -> torch.Tensor | None:
         """``(1+K,)`` per-key logit bias for the prepended tokens: 0 on the age
@@ -71,6 +80,8 @@ class PonderPounceS1Pi05(nn.Module):
 
         ``cognition`` arrives in bf16 (S2 hidden dtype) and ``age_tokenizer``
         is bf16-resident, so no per-tick dtype casts are needed."""
+        if self.cognition_slot_offset or self.cognition_slot_tail:
+            cognition = cognition[:, self.cognition_slot_offset : cognition.shape[1] - self.cognition_slot_tail]
         if cognition.shape[1] == 0:
             return None
         d = self.cognition_proj(cognition)  # (B, K, H)

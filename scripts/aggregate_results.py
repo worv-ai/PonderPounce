@@ -18,6 +18,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("root", help="directory searched recursively for recording-*.sqlite")
     ap.add_argument("--json", default=None, help="also write the table here")
+    ap.add_argument("--expect-episodes", type=int, default=None, help="exit non-zero unless this many episodes ran")
     a = ap.parse_args()
     dbs = sorted(Path(a.root).rglob("recording-*.sqlite"))
     if not dbs:
@@ -65,6 +66,8 @@ def main() -> None:
                 indent=2,
             )
         )
+    if a.expect_episodes is not None and total != a.expect_episodes:
+        raise SystemExit(f"expected {a.expect_episodes} episodes, recorded {total}")
 
 
 if __name__ == "__main__":

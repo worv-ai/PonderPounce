@@ -68,6 +68,28 @@ class PonderPounceVLA(PreTrainedModel):
         if hasattr(self.system1, "cognition_attn_bias"):
             self.system1.cognition_attn_bias = float(config.s1_cognition_attn_bias)
 
+        # Future slots (PonderPounce-WM): part of the carrier block inside Ponder.
+        # When Pounce was trained without them, the S1 adapter drops them from
+        # its soft prefix: the leading slots, or the trailing ones under
+        # ``s2.future_after_cognition``.
+        self.num_future_tokens = int(getattr(config.s2, "num_future_tokens", 0))
+        if self.num_future_tokens > 0 and not config.s1_receives_future:
+            if not hasattr(self.system1, "cognition_slot_offset"):
+                raise ValueError(f"S1 adapter {type(self.system1).__name__} cannot drop future slots")
+            if config.s2.future_after_cognition:
+                self.system1.cognition_slot_tail = self.num_future_tokens
+            else:
+                self.system1.cognition_slot_offset = self.num_future_tokens
+        # Regression head of the future slots: Ponder hidden state -> predicted
+        # change of the pooled SigLIP feature, ``(tokens, D)`` flattened. Not
+        # used to act; kept so the checkpoint's predictions can be read out.
+        if config.s2_future_weight > 0:
+            tokens = config.s2.future_target_tokens(int(getattr(config.s1, "num_camera_slots", 1)))
+            self.future_target_shape = (tokens, int(self.system1.future_target_dim))
+            self.future_head = torch.nn.Linear(cognition_dim, tokens * self.future_target_shape[1]).to(
+                dtype=torch.bfloat16
+            )
+
         if config.s1_readout_aux_weight > 0:
             raise NotImplementedError("checkpoints trained with the S1 read-out aux head are not supported here")
         # Mark S1 as already initialized so HF's ZeRO-3 init walk doesn't
