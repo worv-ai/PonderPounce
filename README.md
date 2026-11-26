@@ -7,6 +7,7 @@ Suhwan Choi<sup>\*1,2</sup>, Jaeyoon Jung<sup>\*1</sup>, Sungkyung Kim<sup>1,2</
 
 [![Project Page](https://img.shields.io/badge/🌐_Project_Page-PonderPounce-5868F9?style=flat-square)](https://worv-ai.github.io/ponderpounce/)
 [![arXiv](https://img.shields.io/badge/📄_arXiv-2608.24115-B31B1B?style=flat-square)](https://arxiv.org/abs/2608.24115)
+[![arXiv](https://img.shields.io/badge/📄_arXiv_(WM)-2611.26996-B31B1B?style=flat-square)](https://arxiv.org/abs/2611.26996)
 [![Code](https://img.shields.io/badge/💻_Code-GitHub-1F2430?style=flat-square)](https://github.com/worv-ai/PonderPounce)
 [![Checkpoint](https://img.shields.io/badge/🤗_Checkpoint-PonderPounce--9B--RoboMME-FFD21E?style=flat-square)](https://huggingface.co/worv-ai/PonderPounce-9B-RoboMME)
 [![Checkpoint](https://img.shields.io/badge/🤗_Checkpoint-PonderPounce--WM--9B--RoboMME-FFD21E?style=flat-square)](https://huggingface.co/worv-ai/PonderPounce-WM-9B-RoboMME)
@@ -21,11 +22,11 @@ Suhwan Choi<sup>\*1,2</sup>, Jaeyoon Jung<sup>\*1</sup>, Sungkyung Kim<sup>1,2</
 > **Ponder** remembers and reasons over the episode. **Pounce** acts quickly from the latest cognition.
 
 > [!NOTE]
-> **PonderPounce-WM is out.** [`worv-ai/PonderPounce-WM-9B-RoboMME`](https://huggingface.co/worv-ai/PonderPounce-WM-9B-RoboMME) adds a future-observation objective to Ponder and reaches **67.42%** on RoboMME (60.83% for the base model on the same data). It runs with the same code: see [PonderPounce-WM](#ponderpounce-wm).
+> **PonderPounce-WM is out** ([paper](https://arxiv.org/abs/2611.26996)). [`worv-ai/PonderPounce-WM-9B-RoboMME`](https://huggingface.co/worv-ai/PonderPounce-WM-9B-RoboMME) adds a future-observation objective to Ponder and reaches **67.42%** on RoboMME (60.83% for the base model on the same data). It runs with the same code: see [PonderPounce-WM](#ponderpounce-wm).
 
 ## News
 
-- **[2026/11/24]** **PonderPounce-WM** checkpoint is out: [`worv-ai/PonderPounce-WM-9B-RoboMME`](https://huggingface.co/worv-ai/PonderPounce-WM-9B-RoboMME), PonderPounce trained with an auxiliary future-observation objective on Ponder (**67.42%** on RoboMME, against 60.83% for the base model on the same data). The same server and scripts run it (see [PonderPounce-WM](#ponderpounce-wm)).
+- **[2026/11/24]** **PonderPounce-WM** is out: [paper](https://arxiv.org/abs/2611.26996) and checkpoint [`worv-ai/PonderPounce-WM-9B-RoboMME`](https://huggingface.co/worv-ai/PonderPounce-WM-9B-RoboMME), PonderPounce trained with an auxiliary future-observation objective on Ponder (**67.42%** on RoboMME, against 60.83% for the base model on the same data). The same server and scripts run it (see [PonderPounce-WM](#ponderpounce-wm)).
 - **[2026/09/29]** Inference code and the RoboMME checkpoint are out: [`worv-ai/PonderPounce-9B-RoboMME`](https://huggingface.co/worv-ai/PonderPounce-9B-RoboMME) on Hugging Face, with a sequential model server and scripts to run the full RoboMME-16 evaluation (see [Evaluation on RoboMME](#evaluation-on-robomme)).
 - **[2026/08/25]** We released the [paper](https://arxiv.org/abs/2608.24115) and [project page](https://worv-ai.github.io/ponderpounce/).
 
@@ -96,7 +97,7 @@ In RoboMME **PickHighlight**, target markers appear briefly and then disappear. 
   <img src="https://huggingface.co/worv-ai/PonderPounce-WM-9B-RoboMME/resolve/main/architecture.png" alt="PonderPounce-WM architecture" width="100%">
 </p>
 
-PonderPounce-WM keeps the two systems and the single-token interface, and adds a world-model objective to Ponder. At every query Ponder's carrier block holds the cognition token followed by three **future slots**, and during training a linear head on each slot regresses how the third-person view will change 0.5 s, 1 s and 2 s ahead, as the difference of pooled features from Pounce's own image encoder. The objective is auxiliary: no pixels are generated, and Pounce still receives only the cognition token, so the action path is unchanged. On RoboMME the model reaches **67.42%** (three evaluation repeats: 68.75 / 66.25 / 67.25) against 60.83% for the base checkpoint trained on the same data.
+PonderPounce-WM ([arXiv:2611.26996](https://arxiv.org/abs/2611.26996)) keeps the two systems and the single-token interface, and adds a world-model objective to Ponder. At every query Ponder's carrier block holds the cognition token followed by three **future slots**, and during training a linear head on each slot regresses how the third-person view will change 0.5 s, 1 s and 2 s ahead, as the difference of pooled features from Pounce's own image encoder. The objective is auxiliary: no pixels are generated, and Pounce still receives only the cognition token, so the action path is unchanged. On RoboMME the model reaches **67.42%** (three evaluation repeats: 68.75 / 66.25 / 67.25) against 60.83% for the base checkpoint trained on the same data.
 
 Every command in this README takes either checkpoint: replace the Hub id with `worv-ai/PonderPounce-WM-9B-RoboMME`. The future slots and their head are part of the checkpoint and are described by its `config.json`; nothing else has to be configured.
 
@@ -153,7 +154,7 @@ uv run scripts/aggregate_results.py runs/robomme      # per-task success rates o
 
 ## Citation
 
-If you find this work useful, please cite our paper:
+If you find this work useful, please cite our papers:
 
 ```bibtex
 @article{choi2026ponderpounce,
